@@ -1,0 +1,34 @@
+import yt_dlp
+
+def extract_playlist_urls(playlist_url):
+    print(f"Extracting metadata from: {playlist_url}\n")
+    
+    # Configure yt-dlp to only extract metadata, not download media
+    ydl_opts = {
+        'extract_flat': True,
+        'quiet': True, 
+        'ignoreerrors': True, # Skips private or deleted videos without crashing
+    }
+    
+    urls = []
+    
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(playlist_url, download=False)
+        
+        if 'entries' in info:
+            for entry in info['entries']:
+                # Some entries might be None if a video is hidden/deleted
+                if entry: 
+                    urls.append(entry['url'])
+                    
+    return urls
+
+if __name__ == "__main__":
+    # Your target Hermes Agent playlist
+    target_playlist = "https://youtube.com/playlist?list=PLmpUb_PWAkDxewld5ZYyKifuHxgIbiq2d"
+    
+    video_links = extract_playlist_urls(target_playlist)
+    
+    # Output formatted as a comma-separated list
+    print(",\n".join(video_links))
+    print(f"\nTotal videos extracted: {len(video_links)}")
