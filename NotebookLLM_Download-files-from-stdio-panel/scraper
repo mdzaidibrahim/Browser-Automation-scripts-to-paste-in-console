@@ -1,0 +1,47 @@
+(async function downloadAllArtifacts() {
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    const artifacts = Array.from(document.querySelectorAll('artifact-library-item'));
+    
+    if (artifacts.length === 0) {
+        console.error("No files found. Ensure the artifact panel is open.");
+        return;
+    }
+    
+    console.log(`Found ${artifacts.length} files. Initiating download sequence...`);
+    console.log("⚠️ If your browser asks for permission to download multiple files, please click 'Allow'.");
+
+    for (let i = 0; i < artifacts.length; i++) {
+        const artifact = artifacts[i];
+        
+        // Locate and click the 3-dots "More" button for the specific file
+        const moreBtn = artifact.querySelector('button[aria-label="More"]');
+        if (!moreBtn) {
+            console.warn(`Could not find the 'More' button for file ${i+1}. Skipping.`);
+            continue;
+        }
+        
+        moreBtn.click();
+        
+        // Wait for the Material Design overlay to attach and animate
+        await sleep(800); 
+        
+        // Find the "Download" button in the global overlay
+        const menuItems = Array.from(document.querySelectorAll('.mat-mdc-menu-item'));
+        const downloadBtn = menuItems.find(item => item.textContent.includes('Download'));
+        
+        if (downloadBtn) {
+            console.log(`[${i + 1}/${artifacts.length}] Requesting download...`);
+            downloadBtn.click();
+        } else {
+            console.warn(`Could not find 'Download' option for file ${i+1}.`);
+            // Force close the menu if something goes wrong so the next iteration doesn't break
+            document.body.click(); 
+        }
+        
+        // Wait 2.5 seconds before the next click to handle the tab flash safely
+        await sleep(2500); 
+    }
+    
+    console.log("🎉 All download requests sent!");
+})();
