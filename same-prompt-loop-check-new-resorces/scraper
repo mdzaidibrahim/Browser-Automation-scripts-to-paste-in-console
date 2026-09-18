@@ -1,0 +1,97 @@
+(async function automateNotebookLM() {
+    const basePrompt = `I want you to convert this (youtube_video_title) video into a skill of .MD file this is huge video everything should be mentioned. You have to create the file in such a way that it can be treated as a guide file for anyone doing the task or any work that is being done in the video. I want you to give full transcribe of the video in that .MD file and while doing transcribe you should intelligently check the video also and mention that also if the transcript of that does not provide enough context then you should mention what in the video he is doing. (Ex: he says "run this command" but does not speak the command then you should see the video and write the command he has run in .MD file), sometimes there will be mentioned very important detail but tiny detail in very short period of time (like few seconds) make sure you have mentioned those too as everything should be mentioned and left no page unturned. if he tells somewhere in the video to get resources or tool links or any data from description or pinned comment , then you have to check that description and pinned comment also. and in the end of the file write what resources and tools he has mentioned, and beside each resource and tools right in 1 line or 2 line what it does and what it is.`;
+
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    const sourceContainers = Array.from(document.querySelectorAll('.single-source-container'));
+    
+    if (sourceContainers.length === 0) {
+        console.error("No sources found. Ensure the sources panel is open and visible.");
+        return;
+    }
+
+    console.log(`Found ${sourceContainers.length} sources. Starting rigorous extraction pipeline...`);
+
+    function uncheckAll() {
+        sourceContainers.forEach(container => {
+            const cb = container.querySelector('input[type="checkbox"]');
+            if (cb && cb.checked) {
+                cb.click();
+            }
+        });
+    }
+
+    for (let i = 0; i < sourceContainers.length; i++) {
+        uncheckAll();
+        await sleep(1000);
+
+        const container = sourceContainers[i];
+        const checkbox = container.querySelector('input[type="checkbox"]');
+        const titleElement = container.querySelector('.source-title');
+        
+        if (!checkbox || !titleElement) {
+            console.warn(`Skipping item ${i+1}: Missing checkbox or title in the DOM.`);
+            continue;
+        }
+
+        const videoTitle = titleElement.getAttribute('aria-label').trim();
+        console.log(`[${i + 1}/${sourceContainers.length}] Processing: "${videoTitle}"`);
+
+        checkbox.click();
+        await sleep(1000);
+
+        const promptText = basePrompt.replace('youtube_video_title', videoTitle);
+
+        const chatInput = document.querySelector('textarea[aria-label="Query box"]');
+        if (!chatInput) {
+            console.error("Could not find the Query box text area.");
+            break;
+        }
+
+        chatInput.value = promptText;
+        chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+        await sleep(1500); 
+
+        // Target the specific chat submit button, ignoring the search bar
+        const submitBtn = document.querySelector('.bottom-right-container button[aria-label="Submit"]');
+        if (submitBtn && !submitBtn.disabled) {
+            submitBtn.click();
+        } else {
+            chatInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+        }
+
+        console.log(`Prompt submitted. Awaiting output generation and chat completion for "${videoTitle}"...`);
+        await sleep(5000);
+
+        let waitTime = 0;
+        const pollInterval = 5000; 
+        const maxWaitTime = 300000; 
+
+        while (waitTime < maxWaitTime) {
+            await sleep(pollInterval);
+            waitTime += pollInterval;
+
+            // FIXED: Scope the icon check strictly to the chat area
+            const submitButtonIcon = document.querySelector('.bottom-right-container button[aria-label="Submit"] mat-icon');
+            const isIdle = submitButtonIcon && submitButtonIcon.textContent.trim() === 'arrow_forward';
+            
+            if (isIdle) {
+                await sleep(2000);
+                console.log(`✅ Generation and chat output complete in ~${(waitTime + 5000) / 1000} seconds. Moving to the next source.`);
+                break;
+            }
+
+            if (waitTime % 30000 === 0) {
+                console.log(`...still generating (${(waitTime + 5000) / 1000}s elapsed)...`);
+            }
+        }
+
+        if (waitTime >= maxWaitTime) {
+            console.warn(`⚠️ Wait timed out after 5 minutes. Moving to the next source to prevent the script from getting stuck.`);
+        }
+        
+        await sleep(3000);
+    }
+    
+    console.log("🎉 Pipeline execution complete for all sources.");
+})();
